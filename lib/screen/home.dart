@@ -1,5 +1,5 @@
 import "package:flutter/material.dart";
-import 'package:testflutter/screen/profile.dart';
+import 'package:testflutter/screen/landing.dart';
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -156,7 +156,7 @@ class _HomeState extends State<Home> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                                builder: (context) => const Profile()),
+                                builder: (context) => const Landing()),
                           );
                         }
                       : null,

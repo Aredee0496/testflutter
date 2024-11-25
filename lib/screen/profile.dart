@@ -21,7 +21,7 @@ class _ProfileState extends State<Profile> {
   final String nickname = 'ดี้';
   final String department = 'IT';
   final String company = 'บริษัท ศรีตรัง ไอบีซี จำกัด';
-  final dynamic telephone = 0941305135;
+  final dynamic telephone = '0941305135';
   final String email = 'rmail@mail.com';
   final String status = 'ปกติ';
 
