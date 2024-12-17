@@ -1,8 +1,10 @@
-import 'dart:convert';
 import 'dart:typed_data';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:testflutter/screen/landing.dart';
+import '../provider-model/profile_model.dart';
 
 class Profile extends StatefulWidget {
   const Profile({super.key});
@@ -12,49 +14,19 @@ class Profile extends StatefulWidget {
 }
 
 class _ProfileState extends State<Profile> {
-  Uint8List? profileImage;
-
   final ImagePicker _picker = ImagePicker();
-  final String name = 'รุชดีร์ บิลล่าเต๊ะ';
-  final String position = 'Developer';
-  final String id = '661010496';
-  final String nickname = 'ดี้';
-  final String department = 'IT';
-  final String company = 'บริษัท ศรีตรัง ไอบีซี จำกัด';
-  final dynamic telephone = '0941305135';
-  final String email = 'rmail@mail.com';
-  final String status = 'ปกติ';
 
   @override
   void initState() {
     super.initState();
-    _loadProfileImage();
+    Provider.of<ProfileModel>(context, listen: false).loadFromSharedPreferences();
   }
 
-  Future<void> _pickImage() async {
-    final XFile? pickedFile = await _picker.pickImage(source: ImageSource.gallery);
+Future<void> _pickAndSaveImage() async {
+    final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
     if (pickedFile != null) {
-      final Uint8List imageBytes = await pickedFile.readAsBytes();
-      await saveProfilePicture(imageBytes);
-      setState(() {
-        profileImage = imageBytes;
-      });
-    }
-  }
-
-  Future<void> saveProfilePicture(Uint8List imageBytes) async {
-    final prefs = await SharedPreferences.getInstance();
-    String base64Image = base64Encode(imageBytes);
-    await prefs.setString('profile_picture', base64Image);
-  }
-
-  Future<void> _loadProfileImage() async {
-    final prefs = await SharedPreferences.getInstance();
-    String? base64Image = prefs.getString('profile_picture');
-    if (base64Image != null) {
-      setState(() {
-        profileImage = base64Decode(base64Image);
-      });
+      Uint8List imageBytes = await pickedFile.readAsBytes();
+      Provider.of<ProfileModel>(context, listen: false).setProfileImage(imageBytes);
     }
   }
 
@@ -68,7 +40,7 @@ class _ProfileState extends State<Profile> {
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
-              await _pickImage();
+              await _pickAndSaveImage();
             },
             child: const Text("Gallery"),
           ),
@@ -77,8 +49,42 @@ class _ProfileState extends State<Profile> {
     );
   }
 
+  Future<void> logout(BuildContext context) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.remove('Id');
+    await prefs.remove('accesstoken');
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const Landing()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final profileProvider = Provider.of<ProfileModel>(context);
+    final profile = profileProvider.profile;
+
+    if (profile.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('โปรไฟล์'),
+          centerTitle: true,
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text('ไม่มีข้อมูลผู้ใช้'),
+              ElevatedButton(
+                onPressed: () => logout(context),
+                child: const Text("Logout"),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('โปรไฟล์'),
@@ -87,6 +93,10 @@ class _ProfileState extends State<Profile> {
       body: SingleChildScrollView(
         child: Column(
           children: [
+            ElevatedButton(
+              onPressed: () => logout(context),
+              child: const Text("Logout"),
+            ),
             const SizedBox(height: 20),
             Container(
               width: 160,
@@ -103,13 +113,13 @@ class _ProfileState extends State<Profile> {
                     height: 150,
                     clipBehavior: Clip.antiAlias,
                     decoration: const BoxDecoration(shape: BoxShape.circle),
-                    child: profileImage == null
+                    child: profileProvider.profileImage == null
                         ? Image.asset(
                             "assets/images/profile.jpg",
                             fit: BoxFit.cover,
                           )
                         : Image.memory(
-                            profileImage!,
+                            profileProvider.profileImage!,
                             fit: BoxFit.cover,
                           ),
                   ),
@@ -138,11 +148,11 @@ class _ProfileState extends State<Profile> {
             ),
             const SizedBox(height: 5),
             Text(
-              name,
+              profile[0].employeeName,
               style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
             Text(
-              position,
+              profile[0].positionName,
               style: const TextStyle(fontSize: 18, color: Colors.grey),
             ),
             Card(
@@ -153,17 +163,55 @@ class _ProfileState extends State<Profile> {
               margin: const EdgeInsets.all(16),
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildInfoRow(Icons.badge, 'ID', id),
-                    _buildInfoRow(Icons.person, 'Nickname', nickname),
-                    _buildInfoRow(Icons.apartment, 'Department', department),
-                    _buildInfoRow(Icons.business, 'Company', company),
-                    _buildInfoRow(Icons.phone, 'Tel.', telephone),
-                    _buildInfoRow(Icons.email, 'E-mail', email),
-                    _buildInfoRow(Icons.check_circle, 'Status', status),
-                  ],
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildInfoRow(
+                          Icons.badge,
+                          'ID',
+                          profile[0].employeeCode.isNotEmpty
+                              ? profile[0].employeeCode
+                              : 'ไม่มีข้อมูล'),
+                      _buildInfoRow(
+                          Icons.person,
+                          'Nickname',
+                          profile[0].employeeNickname.isNotEmpty
+                              ? profile[0].employeeNickname
+                              : 'ไม่มีข้อมูล'),
+                      _buildInfoRow(
+                          Icons.apartment,
+                          'Department',
+                          profile[0].departmentName.isNotEmpty
+                              ? profile[0].departmentName
+                              : 'ไม่มีข้อมูล'),
+                      _buildInfoRow(
+                          Icons.business,
+                          'Company',
+                          profile[0].companyName.isNotEmpty
+                              ? profile[0].companyName
+                              : 'ไม่มีข้อมูล'),
+                      _buildInfoRow(
+                          Icons.phone,
+                          'Tel.',
+                          profile[0].employeeTelephone1.isNotEmpty
+                              ? profile[0].employeeTelephone1
+                              : 'ไม่มีข้อมูล'),
+                      _buildInfoRow(
+                          Icons.email,
+                          'E-mail',
+                          profile[0].employeeEmail1.isNotEmpty
+                              ? profile[0].employeeEmail1
+                              : 'ไม่มีข้อมูล'),
+                      _buildInfoRow(
+                          Icons.check_circle,
+                          'Status',
+                          profile[0].employeeWorkStatus.isNotEmpty
+                              ? profile[0].employeeWorkStatus
+                              : 'ไม่มีข้อมูล'),
+                    ],
+                  ),
                 ),
               ),
             ),
